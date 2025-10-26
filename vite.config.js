@@ -32,6 +32,8 @@ export default defineConfig({
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
+            // Note: Using same icon for maskable. For production, create a dedicated
+            // maskable icon with safe zones for different platforms
           }
         ]
       },

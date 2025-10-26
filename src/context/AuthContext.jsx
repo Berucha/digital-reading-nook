@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }) => {
     // In production, this would validate against a backend
     if (username && password) {
       const userData = {
-        id: Date.now(),
+        id: crypto.randomUUID(),
         username,
         email: `${username}@example.com`,
         createdAt: new Date().toISOString()
@@ -45,7 +45,7 @@ export const AuthProvider = ({ children }) => {
     // Simple client-side authentication for demo purposes
     if (username && email && password) {
       const userData = {
-        id: Date.now(),
+        id: crypto.randomUUID(),
         username,
         email,
         createdAt: new Date().toISOString()

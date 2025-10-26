@@ -7,6 +7,7 @@ const BookSearch = ({ onClose }) => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const { addBook } = useBooks();
   const [selectedFormat, setSelectedFormat] = useState('physical');
   const [selectedStatus, setSelectedStatus] = useState('want-to-read');
@@ -27,7 +28,8 @@ const BookSearch = ({ onClose }) => {
       format: selectedFormat,
       status: selectedStatus
     });
-    alert(`"${book.title}" added to your bookshelf!`);
+    setSuccessMessage(`"${book.title}" added to your bookshelf!`);
+    setTimeout(() => setSuccessMessage(''), 3000);
   };
 
   return (
@@ -36,6 +38,10 @@ const BookSearch = ({ onClose }) => {
         <h3>Search for Books</h3>
         <button className="btn-icon close-btn" onClick={onClose}>✕</button>
       </div>
+
+      {successMessage && (
+        <div className="success">{successMessage}</div>
+      )}
 
       <form onSubmit={handleSearch} className="search-form">
         <input
