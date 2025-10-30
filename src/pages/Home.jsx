@@ -98,7 +98,7 @@ const Home = () => {
               className={`filter-tab ${filter === 'want-to-read' ? 'active' : ''}`}
               onClick={() => setFilter('want-to-read')}
             >
-              Want to Read
+              TBR
             </button>
           </div>
 
