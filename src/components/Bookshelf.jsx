@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useBooks } from '../context/BookContext';
 import './Bookshelf.css';
 
@@ -40,6 +40,124 @@ const Bookshelf = ({ books }) => {
     if (status === 'read') return '#8B5A3C'; // Primary brown
     return '#D4A574'; // Secondary beige for want-to-read
   };
+
+  // Compute average/dominant color from an image URL (best-effort). If CORS prevents reading pixels,
+  // this will reject and we fall back to status-based color.
+  const canvasRef = useRef(null);
+
+  const parseColorToRgb = (color) => {
+    if (!color) return null;
+    color = color.trim();
+    if (color.startsWith('rgb')) {
+      const m = color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+      if (m) return { r: Number(m[1]), g: Number(m[2]), b: Number(m[3]) };
+      return null;
+    }
+    if (color.startsWith('#')) {
+      let hex = color.slice(1);
+      if (hex.length === 3) {
+        hex = hex.split('').map(h => h + h).join('');
+      }
+      const intVal = parseInt(hex, 16);
+      return { r: (intVal >> 16) & 255, g: (intVal >> 8) & 255, b: intVal & 255 };
+    }
+    return null;
+  };
+
+  const getContrastColor = (bgColor) => {
+    const rgb = parseColorToRgb(bgColor);
+    if (!rgb) return '#000';
+    // Perceived luminance
+    const l = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+    return l > 0.6 ? '#000' : '#fff';
+  };
+
+  const getAverageColorFromImage = (url) => {
+    return new Promise((resolve, reject) => {
+      if (!url) return reject(new Error('No url'));
+
+      const img = new Image();
+      // Allow using a dev-time proxy to work around CORS for color extraction.
+      const proxy = typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_CORS_PROXY
+        ? import.meta.env.VITE_CORS_PROXY
+        : '';
+      const urlToLoad = proxy ? `${proxy}${url}` : url;
+      img.crossOrigin = 'Anonymous';
+      img.decoding = 'async';
+      img.src = urlToLoad;
+
+      const cleanup = () => {
+        img.onload = null;
+        img.onerror = null;
+      };
+
+      img.onload = () => {
+        try {
+          const canvas = canvasRef.current || document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          const w = 40; // small size for speed
+          const h = 60;
+          canvas.width = w;
+          canvas.height = h;
+          // draw image scaled to small canvas
+          ctx.drawImage(img, 0, 0, w, h);
+          const data = ctx.getImageData(0, 0, w, h).data;
+          let r = 0, g = 0, b = 0, count = 0;
+          for (let i = 0; i < data.length; i += 4) {
+            const alpha = data[i + 3];
+            // ignore fully transparent pixels
+            if (alpha === 0) continue;
+            r += data[i];
+            g += data[i + 1];
+            b += data[i + 2];
+            count++;
+          }
+          if (count === 0) return reject(new Error('No pixels'));
+          r = Math.round(r / count);
+          g = Math.round(g / count);
+          b = Math.round(b / count);
+          cleanup();
+          const rgb = `rgb(${r}, ${g}, ${b})`;
+          console.debug('Color extracted for', url, '->', rgb);
+          resolve(rgb);
+        } catch (err) {
+          cleanup();
+          reject(err);
+        }
+      };
+
+      img.onerror = (err) => {
+        cleanup();
+        console.debug('Failed to load image for color extraction:', url, err);
+        reject(err || new Error('Image load error'));
+      };
+    });
+  };
+
+  const [bookColors, setBookColors] = useState({});
+
+  // Attempt to compute colors for visible books; best-effort and non-blocking.
+  useEffect(() => {
+    let mounted = true;
+    const computeForBook = async (book) => {
+      if (!book || !book.thumbnail || bookColors[book.id]) return;
+      try {
+        const color = await getAverageColorFromImage(book.thumbnail);
+        if (mounted) {
+          setBookColors(prev => ({ ...prev, [book.id]: color }));
+        }
+      } catch {
+        // Ignore errors (likely CORS). We'll keep using status-based colors.
+      }
+    };
+
+    // compute for all books on the shelves
+    books.forEach(b => {
+      computeForBook(b);
+    });
+
+    return () => { mounted = false; };
+  }, [books, bookColors]);
 
   const handleBookClick = (book) => {
     setSelectedBook(book);
@@ -126,7 +244,7 @@ const Bookshelf = ({ books }) => {
                   <div
                     key={book.id}
                     className="book-spine"
-                    style={{ backgroundColor: getSpineColor(book.status) }}
+                    style={{ backgroundColor: bookColors[book.id] || getSpineColor(book.status), color: getContrastColor(bookColors[book.id] || getSpineColor(book.status)) }}
                     onClick={() => handleBookClick(book)}
                     onMouseEnter={() => setHoveredBook(book.id)}
                     onMouseLeave={() => setHoveredBook(null)}
