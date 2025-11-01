@@ -8,7 +8,7 @@ const BookSearch = ({ onClose }) => {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const { addBook } = useBooks();
+  const { addBook, books, deleteBook } = useBooks();
   const [selectedFormat, setSelectedFormat] = useState('physical');
   const [selectedStatus, setSelectedStatus] = useState('want-to-read');
 
@@ -30,6 +30,20 @@ const BookSearch = ({ onClose }) => {
     });
     setSuccessMessage(`"${book.title}" added to your bookshelf!`);
     setTimeout(() => setSuccessMessage(''), 3000);
+  };
+
+  const handleRemoveBook = (book) => {
+    // Find stored book by id or ISBN
+    const existing = books.find(b => b.id === book.id || (book.isbn && b.isbn === book.isbn));
+    if (existing) {
+      deleteBook(existing.id);
+      setSuccessMessage(`"${book.title}" removed from your bookshelf.`);
+      setTimeout(() => setSuccessMessage(''), 3000);
+    }
+  };
+
+  const isInShelf = (book) => {
+    return books.some(b => b.id === book.id || (book.isbn && b.isbn === book.isbn));
   };
 
   return (
@@ -99,17 +113,28 @@ const BookSearch = ({ onClose }) => {
               </div>
               <div className="result-info">
                 <h4>{book.title}</h4>
-                <p className="result-author">{book.authors.join(', ')}</p>
+                <p className="result-author">{(book.authors || []).join(', ')}</p>
                 {book.publishedDate && (
                   <p className="result-year">Published: {book.publishedDate.substring(0, 4)}</p>
                 )}
               </div>
-              <button 
-                className="btn btn-secondary btn-sm"
-                onClick={() => handleAddBook(book)}
-              >
-                Add
-              </button>
+              {isInShelf(book) ? (
+                <button
+                  type="button"
+                  className="btn btn-danger btn-sm"
+                  onClick={() => handleRemoveBook(book)}
+                >
+                  Remove
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => handleAddBook(book)}
+                >
+                  Add
+                </button>
+              )}
             </div>
           ))}
         </div>
