@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useBooks } from '../context/BookContext';
 import './Bookshelf.css';
 
@@ -6,6 +7,7 @@ const Bookshelf = ({ books }) => {
   const { updateBook, deleteBook } = useBooks();
   const [selectedBook, setSelectedBook] = useState(null);
   const [hoveredBook, setHoveredBook] = useState(null);
+  const [hoverPos, setHoverPos] = useState(null); // {top, left, placement}
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
   const [bookViewMode, setBookViewMode] = useState('spine'); // 'spine' or 'cover'
@@ -170,6 +172,45 @@ const Bookshelf = ({ books }) => {
     setIsEditing(false);
   };
 
+  // Portal-based hover popup so it isn't clipped by ancestor containers / stacking contexts
+  const HoverPopup = ({ book }) => {
+    if (!hoverPos) return null;
+
+    const style = {
+      position: 'fixed',
+      top: Math.max(8, hoverPos.top - 12) + 'px',
+      left: hoverPos.left + 'px',
+      transform: 'translateX(-50%) translateY(-100%)',
+      zIndex: 99999,
+      pointerEvents: 'auto'
+    };
+
+    return createPortal(
+      <div className="book-hover-info" style={style}>
+        {book.thumbnail ? (
+          <div className="hover-cover">
+            <img src={book.thumbnail} alt={book.title} />
+          </div>
+        ) : (
+          <div className="hover-cover">
+            <div className="hover-cover-placeholder">📚</div>
+          </div>
+        )}
+        <div className="hover-details">
+          <h4>{book.title}</h4>
+          <p>{book.authors?.join(', ')}</p>
+          {book.rating > 0 && (
+            <div className="hover-rating">{'⭐'.repeat(book.rating)}</div>
+          )}
+          <div className="hover-status">
+            {statusOptions.find(s => s.value === book.status)?.label}
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  };
+
   const handleUpdate = () => {
     updateBook(selectedBook.id, editData);
     setSelectedBook({ ...selectedBook, ...editData });
@@ -246,8 +287,15 @@ const Bookshelf = ({ books }) => {
                     className="book-spine"
                     style={{ backgroundColor: bookColors[book.id] || getSpineColor(book.status), color: getContrastColor(bookColors[book.id] || getSpineColor(book.status)) }}
                     onClick={() => handleBookClick(book)}
-                    onMouseEnter={() => setHoveredBook(book.id)}
-                    onMouseLeave={() => setHoveredBook(null)}
+                    onMouseEnter={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setHoverPos({ top: rect.top, left: rect.left + rect.width / 2, width: rect.width, height: rect.height });
+                      setHoveredBook(book.id);
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredBook(null);
+                      setHoverPos(null);
+                    }}
                   >
                     <div className="spine-content">
                       <div className="spine-text">
@@ -257,26 +305,8 @@ const Bookshelf = ({ books }) => {
                       <div className="spine-format">{getFormatEmoji(book.format)}</div>
                     </div>
                     
-                    {hoveredBook === book.id && (
-                      <div className="book-hover-info">
-                        <div className="hover-cover">
-                          {book.thumbnail ? (
-                            <img src={book.thumbnail} alt={book.title} />
-                          ) : (
-                            <div className="hover-cover-placeholder">📚</div>
-                          )}
-                        </div>
-                        <div className="hover-details">
-                          <h4>{book.title}</h4>
-                          <p>{book.authors?.join(', ')}</p>
-                          {book.rating > 0 && (
-                            <div className="hover-rating">{'⭐'.repeat(book.rating)}</div>
-                          )}
-                          <div className="hover-status">
-                            {statusOptions.find(s => s.value === book.status)?.label}
-                          </div>
-                        </div>
-                      </div>
+                    {hoveredBook === book.id && hoverPos && (
+                      <HoverPopup book={book} />
                     )}
                   </div>
                 ) : (
@@ -284,8 +314,15 @@ const Bookshelf = ({ books }) => {
                     key={book.id}
                     className="book-cover-view"
                     onClick={() => handleBookClick(book)}
-                    onMouseEnter={() => setHoveredBook(book.id)}
-                    onMouseLeave={() => setHoveredBook(null)}
+                    onMouseEnter={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setHoverPos({ top: rect.top, left: rect.left + rect.width / 2, width: rect.width, height: rect.height });
+                      setHoveredBook(book.id);
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredBook(null);
+                      setHoverPos(null);
+                    }}
                   >
                     {book.thumbnail ? (
                       <img src={book.thumbnail} alt={book.title} className="cover-image" />
@@ -297,19 +334,8 @@ const Bookshelf = ({ books }) => {
                     )}
                     <div className="cover-format-badge">{getFormatEmoji(book.format)}</div>
                     
-                    {hoveredBook === book.id && (
-                      <div className="book-hover-info">
-                        <div className="hover-details">
-                          <h4>{book.title}</h4>
-                          <p>{book.authors?.join(', ')}</p>
-                          {book.rating > 0 && (
-                            <div className="hover-rating">{'⭐'.repeat(book.rating)}</div>
-                          )}
-                          <div className="hover-status">
-                            {statusOptions.find(s => s.value === book.status)?.label}
-                          </div>
-                        </div>
-                      </div>
+                    {hoveredBook === book.id && hoverPos && (
+                      <HoverPopup book={book} />
                     )}
                   </div>
                 )

@@ -186,6 +186,7 @@
 
 /* Hover info tooltip */
 .book-hover-info {
+  /* Default styles; when rendered via fixed positioning we override these inline */
   position: absolute;
   top: -10px;
   left: 50%;
@@ -195,7 +196,8 @@
   box-shadow: var(--shadow-lg);
   padding: var(--spacing-md);
   min-width: 220px;
-  z-index: 100;
+  /* ensure this element can float above other stacking contexts when needed */
+  z-index: 99999;
   pointer-events: none;
   animation: fadeIn 0.2s ease;
   border: 2px solid var(--color-primary);
